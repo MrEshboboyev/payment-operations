@@ -32,9 +32,30 @@ public class PaymentsController(
         }
     }
 
+    [HttpPost("create-payment-method")]
+    public async Task<ActionResult<CreatePaymentMethodResponse>> CreatePaymentMethod([FromBody] CreatePaymentMethodRequest request)
+    {
+        try
+        {
+            // Validate request
+            if (string.IsNullOrEmpty(request.Token))
+            {
+                return BadRequest("Payment token is required");
+            }
+
+            var response = await paymentService.CreatePaymentMethodAsync(request);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error creating payment method");
+            return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
+        }
+    }
+
+
     [HttpPost("confirm-intent")]
-    public async Task<ActionResult<PaymentIntentResponse>> ConfirmPaymentIntent(
-        [FromBody] ConfirmPaymentIntentRequest request)
+    public async Task<ActionResult<PaymentIntentResponse>> ConfirmPaymentIntent([FromBody] ConfirmPaymentIntentRequest request)
     {
         try
         {
@@ -49,6 +70,7 @@ public class PaymentsController(
                 return BadRequest("Payment method ID is required");
             }
 
+            // Call the service to confirm the payment intent
             var response = await paymentService.ConfirmPaymentIntentAsync(request);
             return Ok(response);
         }

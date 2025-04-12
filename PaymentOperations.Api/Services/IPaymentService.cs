@@ -9,11 +9,13 @@ public interface IPaymentService
     Task<PaymentIntentResponse> CreatePaymentIntentAsync(CreatePaymentIntentRequest request);
     Task<PaymentIntentResponse> ConfirmPaymentIntentAsync(ConfirmPaymentIntentRequest request);
     Task<RefundResponse> RefundPaymentAsync(CreateRefundRequest request);
+    Task<CreatePaymentMethodResponse> CreatePaymentMethodAsync(CreatePaymentMethodRequest request);
 }
 
 public class PaymentService(
     PaymentIntentService paymentIntentService, 
-    RefundService refundService) : IPaymentService
+    RefundService refundService,
+    PaymentMethodService paymentMethodService) : IPaymentService
 {
     public async Task<PaymentIntentResponse> CreatePaymentIntentAsync(
         CreatePaymentIntentRequest request)
@@ -57,11 +59,13 @@ public class PaymentService(
         {
             var options = new PaymentIntentConfirmOptions
             {
-                PaymentMethod = request.PaymentMethodId
+                PaymentMethod = request.PaymentMethodId // PaymentMethodId from frontend
             };
 
+            // Confirm the payment intent using Stripe's API
             var paymentIntent = await paymentIntentService.ConfirmAsync(request.PaymentIntentId, options);
 
+            // Return a response with payment intent details
             return new PaymentIntentResponse
             {
                 ClientSecret = paymentIntent.ClientSecret,
@@ -108,6 +112,44 @@ public class PaymentService(
         catch (StripeException ex)
         {
             throw new ApplicationException($"Error refunding payment: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<CreatePaymentMethodResponse> CreatePaymentMethodAsync(CreatePaymentMethodRequest request)
+    {
+        try
+        {
+            // Use the token provided from the frontend instead of card details
+            if (string.IsNullOrEmpty(request.Token))
+            {
+                throw new ApplicationException("Payment token is required.");
+            }
+
+            var options = new PaymentMethodCreateOptions
+            {
+                Type = "card",  // Assuming we're using "card" type. This can be extended to other types if needed.
+                Card = new PaymentMethodCardOptions
+                {
+                    Token = request.Token  // Use the token from the frontend (not card details)
+                }
+            };
+
+            // Create the payment method using Stripe's API
+            var paymentMethod = await paymentMethodService.CreateAsync(options);
+
+            // Return response with payment method details
+            return new CreatePaymentMethodResponse
+            {
+                PaymentMethodId = paymentMethod.Id,
+                CardBrand = paymentMethod.Card.Brand,
+                CardLast4 = paymentMethod.Card.Last4,
+                ExpiryMonth = paymentMethod.Card.ExpMonth,
+                ExpiryYear = paymentMethod.Card.ExpYear
+            };
+        }
+        catch (StripeException ex)
+        {
+            throw new ApplicationException($"Error creating payment method: {ex.Message}", ex);
         }
     }
 }

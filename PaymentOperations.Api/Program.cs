@@ -3,8 +3,20 @@ using Stripe;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add services
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// Configure CORS (Cross-Origin Resource Sharing)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigin", policy =>
+    {
+        policy.WithOrigins("http://192.168.121.147:8080") // Replace with your frontend's address
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 // Add services
 builder.Services.AddScoped<IPaymentService, PaymentService>();
@@ -29,6 +41,9 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// Enable CORS
+app.UseCors("AllowSpecificOrigin"); // Apply the CORS policy
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
